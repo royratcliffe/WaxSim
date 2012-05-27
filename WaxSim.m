@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
                 sdk = optarg;
                 break;
             case 'a':
-                fprintf(stdout, "Available SDK Versions.\n", optopt);
+                fprintf(stdout, "Available SDK Versions.\n");
                 for (NSString *sdkVersion in [Simulator availableSDKs]) {
                     fprintf(stderr, "  %s\n", [sdkVersion UTF8String]);
                 }
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
         }
         
         simulate(sdkString, appPathString, additionalArgs);
-        printf("\n\nREBOOT\n", appPath);
+        printf("\n\nREBOOT\n");
     }
             
     return 0;

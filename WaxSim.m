@@ -6,7 +6,6 @@
 static BOOL gReset = false;
 
 void printUsage();
-void simulate(NSString *sdk, NSString *appPath, NSMutableArray *additionalArgs);
 void resetSignal(int sig);
 
 int main(int argc, char *argv[]) {
@@ -14,15 +13,28 @@ int main(int argc, char *argv[]) {
     
     int c;
     char *sdk = nil;
+	char *family = nil;
     char *appPath = nil;
-    char *buildPath = nil;
+    char *videoPath = nil;
 	NSMutableArray *additionalArgs = [NSMutableArray array];
+	NSMutableDictionary *environment = [NSMutableDictionary dictionary];
+	NSString *environment_variable;
+	NSArray *environment_variable_parts;
     
-    while ((c = getopt(argc, argv, "s:ah")) != -1) {
+    while ((c = getopt(argc, argv, "e:s:f:v:ah")) != -1) {
         switch(c) {
+			case 'e':
+				environment_variable = [NSString stringWithCString:optarg encoding:NSUTF8StringEncoding];
+				environment_variable_parts = [environment_variable componentsSeparatedByString:@"="];
+
+				[environment setObject:[environment_variable_parts objectAtIndex:1] forKey:[environment_variable_parts objectAtIndex:0]];
+				break;
             case 's':
                 sdk = optarg;
                 break;
+			case 'f':
+				family = optarg;
+				break;
             case 'a':
                 fprintf(stdout, "Available SDK Versions.\n");
                 for (NSString *sdkVersion in [Simulator availableSDKs]) {
@@ -32,8 +44,11 @@ int main(int argc, char *argv[]) {
             case 'h':
                 printUsage();
                 return 1;                 
+            case 'v':
+                videoPath = optarg;
+                break;
             case '?':
-                if (optopt == 's') {
+                if (optopt == 's' || optopt == 'f') {
                     fprintf(stderr, "Option -%c requires an argument.\n", optopt);
                     printUsage();
                 }
@@ -52,10 +67,6 @@ int main(int argc, char *argv[]) {
     if (argc > optind) {
         appPath = argv[optind++];
 
-        if (argc > optind) {
-            buildPath = argv[optind++];
-        }
-		
 		// Additional args are sent to app
 		for (int i = optind; i < argc; i++) {
 			[additionalArgs addObject:[NSString stringWithUTF8String:argv[i]]];
@@ -69,40 +80,15 @@ int main(int argc, char *argv[]) {
     
     
     NSString *sdkString = sdk ? [NSString stringWithUTF8String:sdk] : nil;
+	NSString *familyString = family ? [NSString stringWithUTF8String:family] : nil;
     NSString *appPathString = [NSString stringWithUTF8String:appPath];
-    NSString *buildPathString = buildPath ? [NSString stringWithUTF8String:buildPath] : nil;
+    NSString *videoPathString = videoPath ? [NSString stringWithUTF8String:videoPath] : nil;
 
-    while (true) {
-        gReset = false;
-
-        // Move scripts over!
-        if (buildPathString) {
-            NSFileManager *fm = [NSFileManager defaultManager];
-            NSString *appDataPath = [appPathString stringByAppendingPathComponent:@"data"];
-            NSString *buildDataPath = [buildPathString stringByAppendingPathComponent:@"data"];
-            NSError *error = nil;
-            [fm removeItemAtPath:appDataPath error:&error];
-            [fm copyItemAtPath:buildDataPath toPath:appDataPath error:&error];            
-            [fm copyItemAtPath:[buildPathString stringByAppendingPathComponent:@"wax/lib/wax-scripts"]
-                        toPath:[appDataPath stringByAppendingPathComponent:@"scripts/wax"]
-                         error:&error];
-            
-        }
-        
-        simulate(sdkString, appPathString, additionalArgs);
-        printf("\n\nREBOOT\n");
-    }
-            
-    return 0;
-}
-
-void simulate(NSString *sdk, NSString *appPath, NSMutableArray *additionalArgs) {
-    Simulator *simulator = [[Simulator alloc] initWithAppPath:appPath sdk:sdk args:additionalArgs];
+    Simulator *simulator = [[Simulator alloc] initWithAppPath:appPathString sdk:sdkString family:familyString video:videoPathString env:environment args:additionalArgs];
     [simulator launch];
-    
-    while (!gReset && [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:-1]]) ;
-    
-    [simulator end];
+
+    [[NSRunLoop mainRunLoop] run];
+    return 0;
 }
 
 void printUsage() {
@@ -110,11 +96,13 @@ void printUsage() {
     fprintf(stderr, "example: waxsim -s 2.2 /path/to/app.app\n");
     fprintf(stderr, "Available options are:\n");    
     fprintf(stderr, "\t-s sdk\tVersion number of sdk to use (-s 3.1)\n");        
-    fprintf(stderr, "\t-a \tAvailable SDK's\n");
+    fprintf(stderr, "\t-f family\tDevice to use (-f ipad)\n");
+    fprintf(stderr, "\t-e VAR=value\tEnvironment variable to set (-e CFFIXED_HOME=/tmp/iphonehome)\n");
+    fprintf(stderr, "\t-a \tAvailable SDKs\n");
+    fprintf(stderr, "\t-v path\tOutput video recording at path\n");
     fprintf(stderr, "\t-h \tPrints out this wonderful documentation!\n");    
 }
 
 void resetSignal(int sig) {
     gReset = true;
-    signal(sig, resetSignal);
 }

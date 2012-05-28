@@ -10,6 +10,7 @@
 #import "iPhoneSimulatorRemoteClient.h"
 
 @class DTiPhoneSimulatorSystemRoot;
+@class QTMovie;
 
 @interface Simulator : NSObject <DTiPhoneSimulatorSessionDelegate> {
     NSString *_appPath;
